@@ -28,9 +28,9 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   isMockMode: false,
-  refreshProfile: async () => {},
-  updateBalanceMock: async () => {},
-  updateWithdrawableBalance: async () => {},
+  refreshProfile: async () => { },
+  updateBalanceMock: async () => { },
+  updateWithdrawableBalance: async () => { },
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('*')
         .eq('id', userId)
         .single();
-        
+
       if (error) {
         console.error('Error fetching profile:', error);
       } else if (data) {
@@ -138,12 +138,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Mock Mode: Updating balance locally');
       setProfile(prev => prev ? { ...prev, balance: Number(prev.balance || 0) + amount } : null);
       return;
-    } 
-    
+    }
+
     if (user) {
       try {
         console.log(`Attempting to update balance for user ${user.id} by ${amount}`);
-        
+
         // Fetch fresh profile to get the absolute latest balance
         const { data: freshProfile, error: fetchError } = await supabase
           .from('profiles')
@@ -163,13 +163,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Optimistic UI update
         setProfile(prev => prev ? { ...prev, balance: newBalance } : null);
-        
+
         // Database update
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ balance: newBalance })
           .eq('id', user.id);
-          
+
         if (updateError) {
           console.error('Error updating profile balance:', updateError);
           throw updateError;
@@ -184,7 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }]);
 
         if (transError) console.error('Error logging transaction:', transError);
-        
+
         console.log('Balance update successful');
       } catch (err) {
         console.error('Final balance update catch:', err);
@@ -200,20 +200,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isMockMode && profile) {
       setProfile(prev => prev ? { ...prev, withdrawable_balance: Number(prev.withdrawable_balance) + amount } : null);
       return;
-    } 
-    
+    }
+
     if (user && profile) {
       const currentBalance = Number(profile.withdrawable_balance);
       const newBalance = currentBalance + amount;
 
       setProfile(prev => prev ? { ...prev, withdrawable_balance: newBalance } : null);
-      
+
       try {
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ withdrawable_balance: newBalance })
           .eq('id', user.id);
-          
+
         if (updateError) throw updateError;
 
         await supabase.from('transactions').insert([{
@@ -231,11 +231,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
-      refreshProfile, 
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      loading,
+      isMockMode,
+      refreshProfile,
       updateBalanceMock: updateBalance,
       updateWithdrawableBalance
     }}>
