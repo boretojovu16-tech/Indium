@@ -1,9 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Upload, Download, HeadphonesIcon, Activity, Users } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 import './Pages.css';
 
 const Hub = () => {
   const navigate = useNavigate();
+  const { isMockMode } = useAuth();
 
   const controls = [
     {
@@ -88,10 +91,39 @@ const Hub = () => {
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider">System Status</h2>
           <div className="flex items-center">
-            <span className="w-2 h-2 rounded-full bg-green-500 mr-2" style={{ backgroundColor: '#10b981' }}></span>
-            <span className="text-xs text-secondary">All Systems Operational</span>
+            <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: isMockMode ? '#ef4444' : '#10b981' }}></span>
+            <span className="text-xs text-secondary">{isMockMode ? 'Demo Mode (Offline)' : 'All Systems Operational'}</span>
           </div>
         </div>
+        
+        {!isMockMode && (
+          <button 
+            onClick={async () => {
+              try {
+                const { error } = await supabase.rpc('process_daily_returns');
+                if (error) throw error;
+                alert('Daily returns processed successfully!');
+              } catch (err) {
+                console.error(err);
+                alert('Failed to process returns. Ensure the RPC exists in Supabase.');
+              }
+            }}
+            style={{ 
+              width: '100%', 
+              padding: '12px', 
+              backgroundColor: 'rgba(255,255,255,0.1)', 
+              border: '1px solid rgba(255,255,255,0.2)', 
+              borderRadius: '8px', 
+              color: 'white', 
+              fontSize: '11px', 
+              fontWeight: '700',
+              cursor: 'pointer',
+              marginTop: '12px'
+            }}
+          >
+            DEBUG: TRIGGER DAILY RETURNS
+          </button>
+        )}
       </div>
     </div>
   );

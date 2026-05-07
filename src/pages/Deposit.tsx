@@ -33,7 +33,7 @@ const Deposit = () => {
     tx_ref: Date.now().toString(),
     amount: Number(amount),
     currency: 'NGN',
-    payment_options: 'card,mobilemoney,ussd',
+    payment_options: 'banktransfer,card,ussd,mobilemoney',
     customer: {
       email: user?.email || '',
       phone_number: '',
@@ -46,6 +46,7 @@ const Deposit = () => {
     },
   };
 
+  const [processing, setProcessing] = useState(false);
   const handleFlutterPayment = useFlutterwave(config);
 
   const handleProceed = () => {
@@ -58,17 +59,44 @@ const Deposit = () => {
 
     handleFlutterPayment({
       callback: async (response) => {
-        if (response.status === "successful") {
-          await updateBalanceMock(Number(amount));
-          if (planId) {
-            navigate(`/dashboard?status=success&planId=${planId}`);
-          } else {
-            navigate('/dashboard?status=success');
+        console.log("Flutterwave Response:", response);
+        
+        // Handle successful payment
+        if (response.status === "successful" || response.status === "success" || response.charge_response_code === "00") {
+          setProcessing(true);
+          try {
+            // Use verified amount if available, otherwise state amount
+            const verifiedAmount = response.amount ? Number(response.amount) : Number(amount);
+            console.log(`Verifying deposit of ${verifiedAmount}...`);
+            
+            await updateBalanceMock(verifiedAmount);
+            
+            console.log("Balance updated successfully");
+            if (planId) {
+              navigate(`/dashboard?status=success&planId=${planId}`);
+            } else {
+              navigate('/dashboard?status=success');
+            }
+          } catch (err) {
+            console.error("Critical: Balance update failed after successful payment:", err);
+            alert(`PAYMENT SUCCESSFUL but balance update failed. Please DO NOT refresh. Copy this ID: ${response.transaction_id || 'N/A'} and send to support.`);
+          } finally {
+            setProcessing(false);
           }
+        } else if (response.status === "pending") {
+          alert("Payment is pending. Your balance will update automatically once confirmed by the bank. This usually takes 5-10 minutes.");
+          navigate('/dashboard');
+        } else {
+          console.warn("Payment was not successful:", response.status);
+          alert(`Payment Status: ${response.status}. If you have already been debited, please contact support with reference: ${response.tx_ref}`);
         }
         closePaymentModal();
       },
-      onClose: () => {},
+      onClose: () => {
+        if (processing) {
+          console.log("Modal closed while processing update...");
+        }
+      },
     });
   };
 
@@ -161,16 +189,20 @@ const Deposit = () => {
             }}
           />
         </div>
-        <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '32px', textAlign: 'center' }}>
+        <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>
           Minimum deposit is ₦3,000
+        </div>
+        <div style={{ fontSize: '11px', color: '#10b981', fontWeight: '700', marginBottom: '24px', textAlign: 'center', backgroundColor: '#ecfdf5', padding: '8px', borderRadius: '8px' }}>
+          ✨ Bank Transfer is recommended for faster processing
         </div>
 
         <button
           onClick={handleProceed}
+          disabled={processing}
           style={{
             width: '100%',
             padding: '20px',
-            backgroundColor: '#000000ff',
+            backgroundColor: processing ? '#475569' : '#000000ff',
             color: 'white',
             borderRadius: '16px',
             fontSize: '16px',
@@ -179,11 +211,11 @@ const Deposit = () => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            cursor: 'pointer',
+            cursor: processing ? 'not-allowed' : 'pointer',
             boxShadow: '0 8px 20px -6px rgba(94, 94, 94, 0.6)'
           }}
         >
-          Proceed to Pay <ArrowRight size={18} style={{ marginLeft: '8px' }} />
+          {processing ? 'Updating Balance...' : <>Proceed to Pay <ArrowRight size={18} style={{ marginLeft: '8px' }} /></>}
         </button>
       </div>
     </div>

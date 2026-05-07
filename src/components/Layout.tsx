@@ -45,12 +45,15 @@ const BottomNav = () => {
 };
 
 const Layout = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, isMockMode } = useAuth();
   
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-        <p style={{ fontWeight: 'bold', color: '#64748b' }}>Loading...</p>
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p style={{ fontWeight: 'bold', color: '#64748b' }}>Initializing Indium...</p>
+        </div>
       </div>
     );
   }
@@ -61,6 +64,27 @@ const Layout = () => {
 
   return (
     <div className="app-container">
+      {isMockMode && (
+        <div style={{ 
+          backgroundColor: '#ef4444', 
+          color: 'white', 
+          padding: '12px 16px', 
+          fontSize: '13px', 
+          fontWeight: '800', 
+          textAlign: 'center',
+          borderBottom: '4px solid #b91c1c',
+          letterSpacing: '1px',
+          animation: 'pulse 2s infinite',
+          zIndex: 9999,
+          position: 'relative'
+        }}>
+          ⚠️ OFFLINE DEMO MODE ⚠️<br/>
+          <span style={{ fontSize: '10px', fontWeight: '400' }}>
+            Supabase is not connected. Your data WILL NOT PERSIST on refresh. 
+            Check your Netlify Environment Variables.
+          </span>
+        </div>
+      )}
       <Header />
       <main className="main-content">
         <Outlet />

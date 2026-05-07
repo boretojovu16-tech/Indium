@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 interface Profile {
   id: string;
@@ -17,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  isMockMode: boolean;
   refreshProfile: () => Promise<void>;
   updateBalanceMock: (amount: number, type?: string) => Promise<void>;
   updateWithdrawableBalance: (amount: number, type?: string) => Promise<void>;
@@ -26,8 +27,9 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  isMockMode: false,
   refreshProfile: async () => {},
-  updateBalanceMock: () => {},
+  updateBalanceMock: async () => {},
   updateWithdrawableBalance: async () => {},
 });
 
@@ -36,8 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fallback for mock user if supabase is not fully configured
-  const isMockMode = import.meta.env.VITE_SUPABASE_URL === undefined;
+  // Use the flag from supabaseClient
+  const isMockMode = !isSupabaseConfigured;
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -133,55 +135,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateBalance = async (amount: number, type?: string) => {
     if (isMockMode && profile) {
-      setProfile({ ...profile, balance: profile.balance + amount });
-    } else if (user && profile) {
-      // Optimistic UI update
-      setProfile({ ...profile, balance: Number(profile.balance) + amount });
-      
-      // Database update
-      const { error } = await supabase
-        .from('profiles')
-        .update({ balance: Number(profile.balance) + amount })
-        .eq('id', user.id);
+      console.log('Mock Mode: Updating balance locally');
+      setProfile(prev => prev ? { ...prev, balance: Number(prev.balance || 0) + amount } : null);
+      return;
+    } 
+    
+    if (user) {
+      try {
+        console.log(`Attempting to update balance for user ${user.id} by ${amount}`);
         
-      if (error) {
-        console.error('Error updating balance:', error);
-        // Revert on error
-        await fetchProfile(user.id);
-      } else {
+        // Fetch fresh profile to get the absolute latest balance
+        const { data: freshProfile, error: fetchError } = await supabase
+          .from('profiles')
+          .select('balance')
+          .eq('id', user.id)
+          .single();
+
+        if (fetchError) {
+          console.error('Error fetching fresh profile:', fetchError);
+          throw fetchError;
+        }
+
+        const currentBalance = Number(freshProfile?.balance || 0);
+        const newBalance = currentBalance + amount;
+
+        console.log(`Current: ${currentBalance}, New: ${newBalance}`);
+
+        // Optimistic UI update
+        setProfile(prev => prev ? { ...prev, balance: newBalance } : null);
+        
+        // Database update
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ balance: newBalance })
+          .eq('id', user.id);
+          
+        if (updateError) {
+          console.error('Error updating profile balance:', updateError);
+          throw updateError;
+        }
+
         // Log transaction
-        await supabase.from('transactions').insert([{
+        const { error: transError } = await supabase.from('transactions').insert([{
           user_id: user.id,
           type: type || (amount > 0 ? 'Deposit' : 'Withdrawal'),
           amount: Math.abs(amount),
           status: 'Completed'
         }]);
+
+        if (transError) console.error('Error logging transaction:', transError);
+        
+        console.log('Balance update successful');
+      } catch (err) {
+        console.error('Final balance update catch:', err);
+        await fetchProfile(user.id);
+        throw err;
       }
+    } else {
+      console.error('Update balance called but no user is logged in');
     }
   }
 
   const updateWithdrawableBalance = async (amount: number, type?: string) => {
     if (isMockMode && profile) {
-      setProfile({ ...profile, withdrawable_balance: profile.withdrawable_balance + amount });
-    } else if (user && profile) {
-      setProfile({ ...profile, withdrawable_balance: Number(profile.withdrawable_balance) + amount });
+      setProfile(prev => prev ? { ...prev, withdrawable_balance: Number(prev.withdrawable_balance) + amount } : null);
+      return;
+    } 
+    
+    if (user && profile) {
+      const currentBalance = Number(profile.withdrawable_balance);
+      const newBalance = currentBalance + amount;
+
+      setProfile(prev => prev ? { ...prev, withdrawable_balance: newBalance } : null);
       
-      const { error } = await supabase
-        .from('profiles')
-        .update({ withdrawable_balance: Number(profile.withdrawable_balance) + amount })
-        .eq('id', user.id);
-        
-      if (error) {
-        console.error('Error updating withdrawable balance:', error);
-        await fetchProfile(user.id);
-      } else {
-        // Log transaction
+      try {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ withdrawable_balance: newBalance })
+          .eq('id', user.id);
+          
+        if (updateError) throw updateError;
+
         await supabase.from('transactions').insert([{
           user_id: user.id,
           type: type || (amount > 0 ? 'Earned' : 'Withdrawal'),
           amount: Math.abs(amount),
           status: 'Completed'
         }]);
+      } catch (err) {
+        console.error('Error updating withdrawable balance:', err);
+        await fetchProfile(user.id);
+        throw err;
       }
     }
   };
