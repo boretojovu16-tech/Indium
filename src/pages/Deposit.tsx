@@ -62,7 +62,7 @@ const Deposit = () => {
         console.log("Flutterwave Response:", response);
         
         // Handle successful payment
-        if (response.status === "successful" || response.status === "success" || response.charge_response_code === "00") {
+        if (response.status === "successful" || response.status === "success" || (response as any).charge_response_code === "00") {
           setProcessing(true);
           try {
             // Use verified amount if available, otherwise state amount

@@ -11,6 +11,9 @@ interface Profile {
   referrer_id: string | null;
   referral_code?: string;
   last_daily_claim_at?: string;
+  account_number?: string;
+  bank_name?: string;
+  account_name?: string;
 }
 
 interface AuthContextType {

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   reward_balance NUMERIC DEFAULT 0,
   referrer_id UUID REFERENCES public.profiles(id),
   referral_code TEXT UNIQUE,
+  account_number TEXT,
+  bank_name TEXT,
+  account_name TEXT,
   last_daily_claim_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
