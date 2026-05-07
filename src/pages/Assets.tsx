@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Clock, BarChart2, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabaseClient';
 import { plans } from '../data/plans';
 import { buyPlan } from '../lib/investmentUtils';
 import './Pages.css';

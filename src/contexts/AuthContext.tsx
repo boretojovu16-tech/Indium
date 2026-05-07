@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   refreshProfile: async () => {},
-  updateBalanceMock: () => {},
+  updateBalanceMock: async () => {},
   updateWithdrawableBalance: async () => {},
 });
 
@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   // Fallback for mock user if supabase is not fully configured
-  const isMockMode = import.meta.env.VITE_SUPABASE_URL === undefined;
+  const isMockMode = !import.meta.env.VITE_SUPABASE_URL;
 
   const fetchProfile = async (userId: string) => {
     try {

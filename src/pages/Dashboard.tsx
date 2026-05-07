@@ -10,7 +10,7 @@ import './Pages.css';
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, updateBalanceMock, updateWithdrawableBalance } = useAuth();
+  const { profile, updateBalanceMock } = useAuth();
   const [realAssets, setRealAssets] = useState<any[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
