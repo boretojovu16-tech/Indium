@@ -54,7 +54,7 @@ const Withdraw = () => {
 
     // Check time constraint
     const currentHour = new Date().getHours();
-    if (currentHour < 1 || currentHour >= 20) {
+    if (currentHour < 19 || currentHour >= 20) {
       setError('Withdrawals are only allowed between 7:00 PM and 8:00 PM.');
       return;
     }
