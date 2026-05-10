@@ -6,7 +6,7 @@ import './Pages.css';
 
 const Hub = () => {
   const navigate = useNavigate();
-  const { isMockMode } = useAuth();
+  const { isMockMode, profile, refreshProfile } = useAuth();
 
   const controls = [
     {
@@ -99,13 +99,17 @@ const Hub = () => {
         {!isMockMode && (
           <button 
             onClick={async () => {
+              if (!profile) return;
               try {
-                const { error } = await supabase.rpc('process_daily_returns');
+                const { error } = await supabase.rpc('process_user_returns', {
+                  p_user_id: profile.id
+                });
                 if (error) throw error;
-                alert('Daily returns processed successfully!');
+                await refreshProfile();
+                alert('Returns processed successfully for your account!');
               } catch (err) {
                 console.error(err);
-                alert('Failed to process returns. Ensure the RPC exists in Supabase.');
+                alert('Failed to process returns.');
               }
             }}
             style={{ 

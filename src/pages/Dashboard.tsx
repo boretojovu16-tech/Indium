@@ -10,7 +10,7 @@ import './Pages.css';
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, updateBalanceMock } = useAuth();
+  const { profile, updateBalanceMock, refreshProfile } = useAuth();
   const [realAssets, setRealAssets] = useState<any[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -63,6 +63,20 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchAssets = async () => {
       if (profile) {
+        // Automatically process any matured returns (24h cycles)
+        try {
+          const { error: rpcError } = await supabase.rpc('process_user_returns', {
+            p_user_id: profile.id
+          });
+          if (rpcError) console.error('Error processing returns:', rpcError);
+          else {
+            // If returns were processed, refresh the profile to show new balance
+            await refreshProfile();
+          }
+        } catch (err) {
+          console.error('Failed to process returns:', err);
+        }
+
         const { data, error } = await supabase
           .from('user_plans')
           .select('*')

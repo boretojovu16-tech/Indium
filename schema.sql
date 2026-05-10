@@ -141,12 +141,76 @@ BEGIN
             
             -- Log transaction for referral bonus
             INSERT INTO public.transactions (user_id, type, amount, status)
-            VALUES (v_referrer_id, 'ReferralBonus', bonus, 'Completed');
+            VALUES (v_referrer_id, 'Referral Commission', bonus, 'Completed');
         END IF;
 
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function: process_user_returns
+-- More robust version that checks 24h cycles, intended for frontend-triggered processing
+CREATE OR REPLACE FUNCTION process_user_returns(p_user_id UUID)
+RETURNS void AS $$
+DECLARE
+    plan RECORD;
+    v_days_owed INTEGER;
+    v_return_amount NUMERIC;
+    v_referrer_id UUID;
+    v_referral_bonus NUMERIC;
+BEGIN
+    -- Loop through running plans for this specific user
+    FOR plan IN 
+        SELECT * FROM public.user_plans 
+        WHERE user_id = p_user_id 
+        AND status = 'Running' 
+        AND days_left > 0 
+    LOOP
+        -- Calculate how many 24h periods passed since last_return_claimed_at (or created_at)
+        v_days_owed := floor(extract(epoch from (NOW() - COALESCE(plan.last_return_claimed_at, plan.created_at))) / 86400)::INTEGER;
+
+        -- If at least one day has passed
+        IF v_days_owed > 0 THEN
+            -- Cannot claim more days than are left
+            IF v_days_owed > plan.days_left THEN
+                v_days_owed := plan.days_left;
+            END IF;
+
+            v_return_amount := plan.daily_return * v_days_owed;
+
+            -- Update the plan
+            UPDATE public.user_plans
+            SET days_left = days_left - v_days_owed,
+                total_received = total_received + v_return_amount,
+                last_return_claimed_at = COALESCE(plan.last_return_claimed_at, plan.created_at) + (v_days_owed * interval '1 day'),
+                status = CASE WHEN (days_left - v_days_owed) <= 0 THEN 'Completed'::plan_status ELSE 'Running'::plan_status END
+            WHERE id = plan.id;
+
+            -- Update user's withdrawable balance
+            UPDATE public.profiles
+            SET withdrawable_balance = withdrawable_balance + v_return_amount
+            WHERE id = p_user_id;
+
+            -- Log transaction for the user
+            INSERT INTO public.transactions (user_id, type, amount, status)
+            VALUES (p_user_id, 'Investment Return', v_return_amount, 'Completed');
+
+            -- Process Referral Bonus (10% of the return)
+            SELECT referrer_id INTO v_referrer_id FROM public.profiles WHERE id = p_user_id;
+            IF v_referrer_id IS NOT NULL THEN
+                v_referral_bonus := v_return_amount * 0.10;
+                
+                UPDATE public.profiles
+                SET withdrawable_balance = withdrawable_balance + v_referral_bonus
+                WHERE id = v_referrer_id;
+                
+                INSERT INTO public.transactions (user_id, type, amount, status)
+                VALUES (v_referrer_id, 'Referral Commission', v_referral_bonus, 'Completed');
+            END IF;
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function: add_referral_pending
 -- Adds a pending bonus to a referrer when someone signs up with their code

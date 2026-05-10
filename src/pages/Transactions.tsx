@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Clock, Activity } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Clock, Activity, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import './Pages.css';
@@ -45,12 +45,16 @@ const Transactions = () => {
   const getIcon = (type: string) => {
     if (type === 'Deposit') return <ArrowDownLeft size={20} />;
     if (type === 'Withdrawal') return <ArrowUpRight size={20} />;
+    if (type === 'Investment Return') return <Activity size={20} />;
+    if (type === 'Referral Commission') return <Users size={20} />;
     return <Activity size={20} />;
   };
 
   const getColor = (type: string) => {
     if (type === 'Deposit') return { bg: '#ecfdf5', text: '#10b981' };
     if (type === 'Withdrawal') return { bg: '#fef2f2', text: '#ef4444' };
+    if (type === 'Investment Return') return { bg: '#eff6ff', text: '#2563eb' };
+    if (type === 'Referral Commission') return { bg: '#faf5ff', text: '#9333ea' };
     return { bg: '#f1f5f9', text: '#64748b' };
   };
 
